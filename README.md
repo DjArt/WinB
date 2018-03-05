@@ -1,4 +1,4 @@
-# WinB
+# WinB - version 0.0.0.3
 Scripts for easy building Windows Images
 # Requirements
 At now, this tool contains only one script - BuildWindows10ARM.ps1.
