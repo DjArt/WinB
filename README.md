@@ -1,3 +1,4 @@
+# Manual is OUTDATED
 # WinB - version 0.0.0.3
 Scripts for easy building Windows Images
 # Requirements
