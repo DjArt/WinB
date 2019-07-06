@@ -1,302 +1,362 @@
-#region Images
-$W81ARM = "arm\Images\W_8.1_ARM.wim"
-$W10ARM = "arm\Images\W_10.0.16299.15.wim"
-$W10ARM64 = "arm64\Images\W_10.0.16299.15.wim"
-$W10PEARM = "arm\Images\W_10.0.16299.15_PE.wim"
-$W10IOTARM = "arm\Images\W_10.0.16299.15_IoT.vhd"
-#endregion
+$W81 = "W_6.3.9600.0"
+$W10 = "W_10.0.18362.1"
+$WPE = "WPE_10.0.18362.1"
+$WIOT = "WIOT_10.0.17763.1"
+$WM = "WM_10.0.15254.530"
+$wi = Get-WorkingIndex
 
-function Check-Files
+function Get-Path([string]$item)
 {
-  $prep = $true
-  $files = 
-"$W10ARM64
-$W81ARM
-$W10IOTARM
-$W10PEARM".Replace("`r", "").Split("`n")
-  for ($i0 = 0; $i0 -lt $files.Length; $i0++)
-  {
-    $file = $files[$i0]
-    if (Test-Path "..\source\$file")
+    $folderStruct = $item -split '\\'
+    if ($folderStruct.Length -eq 1)
     {
-
+        $folderStruct = ""
     }
     else
     {
-      $prep = $false
+        $folderStruct = ($folderStruct[0 .. ($folderStruct.Length - 2)] -join '\') + '\'
     }
-  }
-  return $prep
+    return $folderStruct
+}
+
+function Prepare-Environment
+{
+    Write-Host -ForegroundColor DarkYellow "--- Stage 1: Preparing environment ---"
+
+    Write " Working directory is: $wi" 
+
+    New-Item "..\logs\$wi" -ItemType Directory > $null
+
+    Write " Copying Windows 8.1 ARM Image: $W81"
+    Copy-Item "..\source\arm\Images\$W81.wim" "..\tmp\$wi\$W81.wim"
+    Write " Copying Windows 10 ARM64 Image: $W10"
+    Copy-Item "..\source\arm64\Images\$W10.wim" "..\tmp\$wi\$W10.wim"
+    Write " Copying Windows 10 PE ARM Image: $WPE"
+    Copy-Item "..\source\arm\Images\$WPE.wim" "..\tmp\$wi\$WPE.wim"
+    Write " Copying Windows 10 IoT ARM Image: $WIOT"
+    Copy-Item "..\source\arm\Images\$WIOT.wim" "..\tmp\$wi\$WIOT.wim"
+    Write " Copying Windows 10 Mobile ARM Image: $WM"
+    Copy-Item "..\source\arm\Images\$WM.wim" "..\tmp\$wi\$WM.wim"
+
+    Write " Mounting $W81"
+    New-Item "..\tmp\$wi\$W81" -ItemType Directory > $null
+    Mount-Image "..\tmp\$wi\$W81.wim" "..\tmp\$wi\$W81"
+    Write " Mounting $W10"
+    New-Item "..\tmp\$wi\$W10" -ItemType Directory > $null
+    Mount-Image "..\tmp\$wi\$W10.wim" "..\tmp\$wi\$W10"
+    Write " Mounting $WPE"
+    New-Item "..\tmp\$wi\$WPE" -ItemType Directory > $null
+    Mount-Image "..\tmp\$wi\$WPE.wim" "..\tmp\$wi\$WPE"
+    Write " Mounting $WIOT"
+    New-Item "..\tmp\$wi\$WIOT" -ItemType Directory > $null
+    Mount-Image "..\tmp\$wi\$WIOT.wim" "..\tmp\$wi\$WIOT"
+    Write " Mounting $WM"
+    New-Item "..\tmp\$wi\$WM" -ItemType Directory > $null
+    Mount-Image "..\tmp\$wi\$WM.wim" "..\tmp\$wi\$WM"
+}
+
+function Integrate-CABs
+{
+    Write-Host -ForegroundColor DarkYellow "--- Stage 2: Integrating Packages  ---"
+    Add-PackagesToImage "..\tmp\$wi\$WPE" "..\source\arm\Packages"
+}
+
+function Merge-Images
+{
+    Write-Host -ForegroundColor DarkYellow "--- Stage 3: Merging images        ---"
+
+    # TO EXCLUDE: $excluded = @("Drivers\*","DriverStore\*","Config\*","catroot\*","catroot2\*")
+
+    Write " Obtain System32 files list"
+    Write "  Obtain $W10 System32 files list"
+    $Original_List = Get-ChildItem -Name -Recurse -File -Path "..\tmp\$wi\$W10\Windows\System32" | ? { -not $_.ToUpper().StartsWith("DRIVERS") -and -not $_.ToUpper().StartsWith("COFIG\") -and -not $_.ToUpper().StartsWith("CATROOT") }
+    Write "  Obtain $WPE System32 files list"
+    $WPE_List = Get-ChildItem -Name -Recurse -File -Path "..\tmp\$wi\$WPE\Windows\System32" | ? { -not $_.ToUpper().StartsWith("DRIVERS") -and -not $_.ToUpper().StartsWith("COFIG\") -and -not $_.ToUpper().StartsWith("CATROOT") }
+    Write "  Obtain $W10 SysArm32 files list"
+    $W10_List = Get-ChildItem -Name -Recurse -File -Path "..\tmp\$wi\$W10\Windows\SysArm32" | ? { -not $_.ToUpper().StartsWith("DRIVERS") -and -not $_.ToUpper().StartsWith("COFIG\") -and -not $_.ToUpper().StartsWith("CATROOT") }
+    Write "  Obtain $WIOT System32 files list"
+    $WIOT_List = Get-ChildItem -Name -Recurse -File -Path "..\tmp\$wi\$WIOT\Windows\System32" | ? { -not $_.ToUpper().StartsWith("DRIVERS") -and -not $_.ToUpper().StartsWith("COFIG\") -and -not $_.ToUpper().StartsWith("CATROOT") }
+    Write "  Obtain $WM System32 files list"
+    $WM_List = Get-ChildItem -Name -Recurse -File -Path "..\tmp\$wi\$WM\Windows\System32" | ? { -not $_.ToUpper().StartsWith("DRIVERS") -and -not $_.ToUpper().StartsWith("COFIG\") -and -not $_.ToUpper().StartsWith("CATROOT") }
+    Write "  Obtain $W81 System32 files list"
+    $W81_List = Get-ChildItem -Name -Recurse -File -Path "..\tmp\$wi\$W81\Windows\System32" | ? { -not $_.ToUpper().StartsWith("DRIVERS") -and -not $_.ToUpper().StartsWith("COFIG\") -and -not $_.ToUpper().StartsWith("CATROOT") }
+
+    Write " Comparing lists"
+    $Diff0 = Compare-Object2 -IncludeEqual -ReferenceObject $Original_List -DifferenceObject $WPE_List | ? {$_.SideIndicator -eq '<='} | % {$_.InputObject}
+    $Comp1 = Compare-Object2 -IncludeEqual -ReferenceObject $Diff0 -DifferenceObject $W10_List
+    $Diff1 = $Comp1 | ? {$_.SideIndicator -eq '<='} | % {$_.InputObject}
+    $Copy1 = $Comp1 | ? {$_.SideIndicator -eq '=='} | % {$_.InputObject}
+    $Comp2 = Compare-Object2 -IncludeEqual -ReferenceObject $Diff1 -DifferenceObject $WIOT_List
+    $Diff2 = $Comp2 | ? {$_.SideIndicator -eq '<='} | % {$_.InputObject}
+    $Copy2 = $Comp2 | ? {$_.SideIndicator -eq '=='} | % {$_.InputObject}
+    $Comp3 = Compare-Object2 -IncludeEqual -ReferenceObject $Diff2 -DifferenceObject $WM_List
+    $Diff3 = $Comp3 | ? {$_.SideIndicator -eq '<='} | % {$_.InputObject}
+    $Copy3 = $Comp3 | ? {$_.SideIndicator -eq '=='} | % {$_.InputObject}
+    $Comp4 = Compare-Object2 -IncludeEqual -ReferenceObject $Diff3 -DifferenceObject $W81_List
+    $Diff4 = $Comp4 | ? {$_.SideIndicator -eq '<='} | % {$_.InputObject}
+    $Copy4 = $Comp4 | ? {$_.SideIndicator -eq '=='} | % {$_.InputObject}
+
+    Write $Copy1 > "..\logs\$wi\Copy from $W10 System32.log"
+    Write $Copy2 > "..\logs\$wi\Copy from $WIOT System32.log"
+    Write $Copy3 > "..\logs\$wi\Copy from $WM System32.log"
+    Write $Copy4 > "..\logs\$wi\Copy from $W81 System32.log"
+    Write $Diff4 > "..\logs\$wi\Not exist in System32.log"
+    Write $Comp1 > "..\logs\$wi\Comp1 in System32.log"
+    Write $Comp2 > "..\logs\$wi\Comp2 in System32.log"
+    Write $Comp3 > "..\logs\$wi\Comp3 in System32.log"
+    Write $Comp4 > "..\logs\$wi\Comp4 in System32.log"
+
+    Write " Merging files"
+    Write "  Copying from $W10"
+    foreach ($item in $Copy1)
+    {
+        $folderStruct = Get-Path $item
+        New-Item -Force -ItemType Directory "..\tmp\$wi\$WPE\Windows\System32\$folderStruct" > $null
+        Copy-Item -Recurse -Force -Verbose "..\tmp\$wi\$W10\Windows\SysArm32\$item" "..\tmp\$wi\$WPE\Windows\System32\$folderStruct" 4>> "..\logs\$wi\copylog in System32.log"
+    }
+    Copy-Item -Recurse -Force "..\tmp\$wi\$W10\Windows\Fonts" "..\tmp\$wi\$WPE\Windows\"
+    Copy-Item -Recurse -Force "..\tmp\$wi\$W10\Windows\GameBarPresenceWriter" "..\tmp\$wi\$WPE\Windows\"
+    Copy-Item -Recurse -Force "..\tmp\$wi\$W10\Windows\Globalization" "..\tmp\$wi\$WPE\Windows\"
+    Copy-Item -Recurse -Force "..\tmp\$wi\$W10\Windows\Help" "..\tmp\$wi\$WPE\Windows\"
+    Copy-Item -Recurse -Force "..\tmp\$wi\$W10\Windows\InputMethod" "..\tmp\$wi\$WPE\Windows\"
+    Copy-Item -Recurse -Force "..\tmp\$wi\$W10\Windows\L2Schemas" "..\tmp\$wi\$WPE\Windows\"
+    Copy-Item -Recurse -Force "..\tmp\$wi\$W10\Windows\OCR" "..\tmp\$wi\$WPE\Windows\"
+    Copy-Item -Recurse -Force "..\tmp\$wi\$W10\Windows\PLA" "..\tmp\$wi\$WPE\Windows\"
+    Copy-Item -Recurse -Force "..\tmp\$wi\$W10\Windows\PolicyDefinitions" "..\tmp\$wi\$WPE\Windows\"
+    Copy-Item -Recurse -Force "..\tmp\$wi\$W10\Windows\Resources" "..\tmp\$wi\$WPE\Windows\"
+    Copy-Item -Recurse -Force "..\tmp\$wi\$W10\Windows\Schemas" "..\tmp\$wi\$WPE\Windows\"
+    Copy-Item -Recurse -Force "..\tmp\$wi\$W10\Windows\Security" "..\tmp\$wi\$WPE\Windows\"
+    Copy-Item -Recurse -Force "..\tmp\$wi\$W10\Windows\SKB" "..\tmp\$wi\$WPE\Windows\"
+    Copy-Item -Recurse -Force "..\tmp\$wi\$W10\Windows\SysArm32\explorer.exe" "..\tmp\$wi\$WPE\Windows\explorer.exe"
+    Copy-Item -Recurse -Force "..\tmp\$wi\$W10\Windows\System" "..\tmp\$wi\$WPE\Windows\"
+    Copy-Item -Recurse -Force "..\tmp\$wi\$W10\Windows\SystemResources" "..\tmp\$wi\$WPE\Windows\"
+    Copy-Item -Recurse -Force "..\tmp\$wi\$W10\Windows\Setup" "..\tmp\$wi\$WPE\Windows\"
+    Copy-Item -Recurse -Force "..\tmp\$wi\$W10\Windows\SysArm32\taskmgr.exe" "..\tmp\$wi\$WPE\Windows\System32\taskmgr.exe"
+    Write "  Copying from $WIOT"
+    foreach ($item in $Copy2)
+    {
+        $folderStruct = Get-Path $item
+        New-Item -Force -ItemType Directory "..\tmp\$wi\$WPE\Windows\System32\$folderStruct" > $null
+        Copy-Item -Force -Recurse -Verbose "..\tmp\$wi\$WIOT\Windows\System32\$item" "..\tmp\$wi\$WPE\Windows\System32\$folderStruct" 4>> "..\logs\$wi\copylog in System32.log"
+    }
+    Write "  Copying from $WM"
+    foreach ($item in $Copy3)
+    {
+        $folderStruct = Get-Path $item
+        New-Item -Force -ItemType Directory "..\tmp\$wi\$WPE\Windows\System32\$folderStruct" > $null
+        Copy-Item -Force -Recurse -Verbose "..\tmp\$wi\$WM\Windows\System32\$item" "..\tmp\$wi\$WPE\Windows\System32\$folderStruct" 4>> "..\logs\$wi\copylog in System32.log"
+    }
+    Write "  Copying from $W81"
+    foreach ($item in $Copy4)
+    {
+        $folderStruct = Get-Path $item
+        New-Item -Force -ItemType Directory "..\tmp\$wi\$WPE\Windows\System32\$folderStruct" > $null
+        Copy-Item -Force -Recurse -Verbose "..\tmp\$wi\$W81\Windows\System32\$item" "..\tmp\$wi\$WPE\Windows\System32\$folderStruct" 4>> "..\logs\$wi\copylog in System32.log"
+    }
+
+    # TODO: Registry checking
+    Write " Copying ARM desktop applications"
+    Write "  Obtain $W81 applications list"
+    $W81_List = Get-ChildItem -Name -Exclude "WindowsApps" -Path "..\tmp\$wi\$W81\Program Files"
+    Write "  Copying $W81 applications"
+    foreach ($item in $W81_List)
+    {
+        $folderStruct = Get-Path $item
+        New-Item -Force -ItemType Directory "..\tmp\$wi\$WPE\Program Files\$folderStruct" > $null
+        Copy-Item -Recurse -Force -Verbose "..\tmp\$wi\$W81\Program Files\$item" "..\tmp\$wi\$WPE\Program Files\$folderStruct" 4>> "..\logs\$wi\copylog in System32.log"
+    }
+    Write "  Obtain $W10 applications list"
+    $W10_List = Get-ChildItem -Name -Exclude "WindowsApps" -Path "..\tmp\$wi\$W10\Program Files"
+    Write "  Copying $W10 applications"
+    foreach ($item in $W10_List)
+    {
+        $folderStruct = Get-Path $item
+        New-Item -Force -ItemType Directory "..\tmp\$wi\$WPE\Program Files\$folderStruct" > $null
+        Copy-Item -Recurse -Force -Verbose "..\tmp\$wi\$W10\Program Files\$item" "..\tmp\$wi\$WPE\Program Files\$folderStruct" 4>> "..\logs\$wi\copylog in System32.log"
+    }
+
+    # TODO: UWP Apps
+}
+
+function Construct-Registry
+{
+    Write-Host -ForegroundColor DarkYellow "--- Stage 4: Constructing registry ---"
+
+    Write " Storing registry from $WPE"
+    Copy-Item "..\tmp\$wi\$WPE\Windows\System32\Config\SYSTEM" "..\tmp\$wi\SYSTEM"
+    Write " Copying registry from $W10"
+    Copy-Item -Force "..\tmp\$wi\$W10\Windows\System32\Config\SOFTWARE" "..\tmp\$wi\$WPE\Windows\System32\Config\SOFTWARE"
+    Copy-Item -Force "..\tmp\$wi\$W10\Windows\System32\Config\SYSTEM" "..\tmp\$wi\$WPE\Windows\System32\Config\SYSTEM"
+
+    Write " Mounting registry"
+    $R_OR = "HKLM:\"+"$wi"+"_OR"
+    $R_SY = "HKLM:\"+"$wi"+"_SY"
+	$R_SO = "HKLM:\"+"$wi"+"_SO"
+	Mount-Hive "..\tmp\$wi\$WPE\Windows\System32\Config\SYSTEM" $R_SY.Replace(":","")
+	Mount-Hive "..\tmp\$wi\$WPE\Windows\System32\Config\SOFTWARE" $R_SO.Replace(":","")
+	Mount-Hive "..\tmp\$wi\SYSTEM" $R_OR.Replace(":","")
+
+    Write " Fixing DriverDatabase"
+    Remove-Item -Force -Recurse "$R_SY\DriverDatabase"
+    Copy-Item -Recurse -Force "$R_OR\DriverDatabase" "$R_SY\DriverDatabase"
+
+    Write " Fixing OSExtensionDatabase"
+    Remove-Item -Force -Recurse "$R_SY\ControlSet001\Control\OSExtensionDatabase"
+    Copy-Item -Recurse -Force "$R_OR\ControlSet001\Control\OSExtensionDatabase" "$R_SY\ControlSet001\Control\OSExtensionDatabase"
+
+    Write " Clean SysWOW"
+    Remove-Item -Force -Recurse "$R_SO\WOW6432Node"
+    Remove-Item -Force -Recurse "$R_SO\WowAA32Node"
+
+    [gc]::Collect()
+    Start-Sleep 5
+
+    Write " Unmounting registry"
+    Unmount-Hive $R_OR.Replace(":","")
+    Unmount-Hive $R_SO.Replace(":","")
+    Unmount-Hive $R_SY.Replace(":","")
+}
+
+function Integrate-Drivers
+{
+    Write-Host -ForegroundColor DarkYellow "--- Stage 5: Integrating drivers   ---"
+
+    foreach ($driverpack in (Get-ChildItem "..\source\arm\drivers" -Name -File -Filter "*.7z"))
+    {
+	  Write " Integrating $driverpack"
+      New-Item "..\tmp\$wi\Drivers" -ItemType Directory > $null
+      Extract-Item "..\source\arm\drivers\$driverpack" "..\tmp\$wi\Drivers" > $null
+      Add-DriversToImage "..\tmp\$wi\$WPE" "..\tmp\$wi\Drivers"
+      Remove-Item "..\tmp\$wi\Drivers" -Recurse -Force > $null
+    }
+
+    Write " Merging drivers"
+    Write "  Mounting registry"
+    $R_WPE = "HKLM:\"+"$wi"+"_WPE"
+    $R_WIOT = "HKLM:\"+"$wi"+"_WIOT"
+    $R_WM = "HKLM:\"+"$wi"+"_WM"
+    $R_W81 = "HKLM:\"+"$wi"+"_W81"
+	Mount-Hive "..\tmp\$wi\$WPE\Windows\System32\Config\SYSTEM" $R_WPE.Replace(":","")
+    Mount-Hive "..\tmp\$wi\$WIOT\Windows\System32\Config\SYSTEM" $R_WIOT.Replace(":","")
+    Mount-Hive "..\tmp\$wi\$WM\Windows\System32\Config\SYSTEM" $R_WM.Replace(":","")
+    Mount-Hive "..\tmp\$wi\$W81\Windows\System32\Config\SYSTEM" $R_W81.Replace(":","")
+
+    Write "  Obtain drivers list"
+    Write "   Obtain $W10 drivers list"
+    $excluded = ""
+    $Original_List = Get-ChildItem -Name -File -Recurse -Path "..\tmp\$wi\$W10\Windows\System32\Drivers"
+    Write "   Obtain $WPE drivers list"
+    $WPE_List = Get-ChildItem -Name -File -Recurse -Path "..\tmp\$wi\$WPE\Windows\System32\Drivers"
+    Write "   Obtain $WIOT drivers list"
+    $WIOT_List = Get-ChildItem -Name -File -Recurse -Path "..\tmp\$wi\$WIOT\Windows\System32\Drivers"
+    Write "   Obtain $WM drivers list"
+    $WM_List = Get-ChildItem -Name -File -Recurse -Path "..\tmp\$wi\$WM\Windows\System32\Drivers"
+    Write "   Obtain $W81 drivers list"
+    $W81_List = Get-ChildItem -File -Recurse -Path "..\tmp\$wi\$W81\Windows\System32\Drivers"
+
+    Write "  Comparing lists"
+    $Diff0 = Compare-Object2 -IncludeEqual -ReferenceObject $Original_List -DifferenceObject $WPE_List | ? {$_.SideIndicator -eq '<='} | % {$_.InputObject}
+    $Comp1 = Compare-Object2 -IncludeEqual -ReferenceObject $Diff0 -DifferenceObject $WIOT_List
+    $Diff1 = $Comp1 | ? {$_.SideIndicator -eq '<='} | % {$_.InputObject}
+    $Copy1 = $Comp1 | ? {$_.SideIndicator -eq '=='} | % {$_.InputObject}
+    $Comp2 = Compare-Object2 -IncludeEqual -ReferenceObject $Diff1 -DifferenceObject $WM_List
+    $Diff2 = $Comp2 | ? {$_.SideIndicator -eq '<='} | % {$_.InputObject}
+    $Copy2 = $Comp2 | ? {$_.SideIndicator -eq '=='} | % {$_.InputObject}
+    $Comp3 = Compare-Object2 -IncludeEqual -ReferenceObject $Diff2 -DifferenceObject $W81_List
+    $Diff3 = $Comp3 | ? {$_.SideIndicator -eq '<='} | % {$_.InputObject}
+    $Copy3 = $Comp3 | ? {$_.SideIndicator -eq '=='} | % {$_.InputObject}
+
+    Write $Copy1 > "..\logs\$wi\Copy from $WIOT Drivers.log"
+    Write $Copy2 > "..\logs\$wi\Copy from $WM Drivers.log"
+    Write $Copy3 > "..\logs\$wi\Copy from $W81 Drivers.log"
+    Write $Diff3 > "..\logs\$wi\Not exist in Drivers.log"
+    Write $Comp1 > "..\logs\$wi\Comp1 in Drivers.log"
+    Write $Comp2 > "..\logs\$wi\Comp2 in Drivers.log"
+    Write $Comp3 > "..\logs\$wi\Comp3 in Drivers.log"
+
+    Write "  Merging files"
+    Write "   Copying from $WIOT"
+    foreach ($item in $Copy1)
+    {
+        Copy-Item -Verbose -Force -Recurse "..\tmp\$wi\$WIOT\Windows\System32\Drivers\$item" "..\tmp\$wi\$WPE\Windows\System32\Drivers\" 4>> "..\logs\$wi\copylog in System32.log"
+    }
+    Write "   Copying from $WM"
+    foreach ($item in $Copy2)
+    {
+        Copy-Item -Force -Recurse -Verbose "..\tmp\$wi\$WM\Windows\System32\Drivers\$item" "..\tmp\$wi\$WPE\Windows\System32\Drivers\" 4>> "..\logs\$wi\copylog in System32.log"
+    }
+    Write "   Copying from $W81"
+    foreach ($item in $Copy3)
+    {
+        Copy-Item -Force -Recurse -Verbose "..\tmp\$wi\$W81\Windows\System32\Drivers\$item" "..\tmp\$wi\$WPE\Windows\System32\Drivers\" 4>> "..\logs\$wi\copylog in System32.log"
+    }
+
+    Write "   Fixing registry"
+    $Diff3 = $Diff3 | ? { -not $_.Contains("\") }
+    Write $Diff3 > "..\logs\$wi\For remove Drivers.log"
+    foreach ($item in $Diff3)
+    {
+        $item = $item.Split(".")[0]
+        Remove-Item -Force -Recurse -Path "$R_WPE\ControlSet001\Services\$item"
+    }
+
+    [gc]::Collect()
+    Start-Sleep 5
+
+    Write "  Unmounting registry"
+    Unmount-Hive $R_WPE.Replace(":","")
+    Unmount-Hive $R_WIOT.Replace(":","")
+    Unmount-Hive $R_WM.Replace(":","")
+    Unmount-Hive $R_W81.Replace(":","")
+}
+
+function Clean-Environment
+{
+    Write-Host -ForegroundColor DarkYellow "--- Stage 6: Cleanup               ---"
+
+	Remove-Item "..\tmp\$wi\SYSTEM"
+
+    Write " Unmounting $W10"
+    Discard-Image "..\tmp\$wi\$W10"
+    Remove-Item "..\tmp\$wi\$W10.wim" -Recurse -Force > $null
+    Remove-Item "..\tmp\$wi\$W10" -Recurse -Force > $null
+
+    Write " Unmounting $WIOT"
+    Discard-Image "..\tmp\$wi\$WIOT"
+    Remove-Item "..\tmp\$wi\$WIOT.wim" -Recurse -Force > $null
+    Remove-Item "..\tmp\$wi\$WIOT" -Recurse -Force > $null
+
+    Write " Unmounting $WM"
+    Discard-Image "..\tmp\$wi\$WM"
+    Remove-Item "..\tmp\$wi\$WM.wim" -Recurse -Force > $null
+    Remove-Item "..\tmp\$wi\$WM" -Recurse -Force > $null
+
+    Write " Unmounting $W81"
+    Discard-Image "..\tmp\$wi\$W81"
+    Remove-Item "..\tmp\$wi\$W81.wim" -Recurse -Force > $null
+    Remove-Item "..\tmp\$wi\$W81" -Recurse -Force > $null
+
+    Read-Host "Press Enter to finish building WIM and clean environment"
+
+    Write " Unmounting $WPE"
+    Unmount-Image "..\tmp\$wi\$WPE"
+    Remove-Item "..\tmp\$wi\$WPE" -Recurse -Force > $null
+
+    Move-Item "..\tmp\$wi\$WPE.wim" "..\out\$wi $W10.wim"
+
+    Remove-Item -Force -Recurse "..\tmp\$wi"
+
+    Write-Host -ForegroundColor Green "Done!"
+    Write "Result file can be found in 'out' folder."
 }
 
 function Start-BuildWindows10ARM
 {
-  $ver = "10.0.16299.15"
-  if (Check-Files)
-  {
-    $logsdir = "..\tmp"
-    $wi = Get-WorkingIndex
-	$unlockedacl = Get-Acl -Path $PSScriptRoot
-    Write "Copying W81RTARM.wim"
-    Copy-Item "..\source\$W81ARM" "..\tmp\$wi\W81RTARM.wim"
-    Write "Copying W10PEARM.wim"
-    Copy-Item "..\source\$W10PEARM" "..\tmp\$wi\W10PEARM.wim"
-    Write "Copying W10ARM64.wim"
-    Copy-Item "..\source\$W10ARM64" "..\tmp\$wi\W10ARM64.wim"
-    Write "Copying W10IOTARM.vhd"
-    Copy-Item "..\source\$W10IOTARM" "..\tmp\$wi\W10IOTARM.vhd"
-	Set-ItemCompreesionFlag "..\tmp\$wi\W10IOTARM.vhd"
-
-    Write "Mounting W10PEARM.wim"
-    New-Item "..\tmp\$wi\W10PEARM" -ItemType Directory > $null
-    Mount-Image "..\tmp\$wi\W10PEARM.wim" "..\tmp\$wi\W10PEARM"
-
-    Write "Integrating drivers"
-    foreach ($driverpack in (Get-ChildItem "..\source\arm\drivers" -Name -File -Filter "*.7z"))
-    {
-	  Write "Integrating $driverpack"
-      New-Item "..\tmp\$wi\Drivers" -ItemType Directory > $null
-      Extract-Item "..\source\arm\drivers\$driverpack" "..\tmp\$wi\Drivers" > $null
-      Add-DriversToImage "..\tmp\$wi\W10PEARM" "..\tmp\$wi\Drivers"
-      Remove-Item "..\tmp\$wi\Drivers" -Recurse -Force > $null
-    }
-
-    Write "Integrating packages"
-    Add-PackagesToImage "..\tmp\$wi\W10PEARM" "..\source\arm\Packages\$ver"
-	
-	$to = "..\tmp\$wi\W10PEARM"
-	$toSystem = "HKLM:\"+"$wi"+"_W10PEARM_SYSTEM"
-	$toSoftware = "HKLM:\"+"$wi"+"_W10PEARM_SOFTWARE"
-	Mount-Hive "$to\Windows\System32\Config\SYSTEM" $toSystem.Replace(":","")
-	Mount-Hive "$to\Windows\System32\Config\SOFTWARE" $toSoftware.Replace(":","")
-
-    Write "Mounting W10ARM64.wim"
-    New-Item "..\tmp\$wi\W10ARM64" -ItemType Directory > $null
-    Mount-Image "..\tmp\$wi\W10ARM64.wim" "..\tmp\$wi\W10ARM64"
-	$from = "..\tmp\$wi\W10ARM64"
-	$fromSystem = "HKLM:\"+"$wi"+"_W10ARM64_SYSTEM"
-	$fromSoftware = "HKLM:\"+"$wi"+"_W10ARM64_SOFTWARE"
-	Mount-Hive "$from\Windows\System32\Config\SYSTEM" $fromSystem.Replace(":","")
-	Mount-Hive "$from\Windows\System32\Config\SOFTWARE" $fromSoftware.Replace(":","")
-	Read-Host "Check registry and continue"
-	
-###############################################################################
-Write "Copy missing files to Windows"
-###############################################################################
-Copy-Item -Recurse "$from\Windows\Fonts" "$to\Windows\"
-Copy-Item -Recurse "$from\Windows\GameBarPresenceWriter" "$to\Windows\"
-Copy-Item -Recurse "$from\Windows\Globalization" "$to\Windows\"
-Copy-Item -Recurse "$from\Windows\Help" "$to\Windows\"
-Copy-Item -Recurse "$from\Windows\InfusedApps" "$to\Windows\"
-Copy-Item -Recurse "$from\Windows\InputMethod" "$to\Windows\"
-Copy-Item -Recurse "$from\Windows\L2Schemas" "$to\Windows\"
-Copy-Item -Recurse "$from\Windows\OCR" "$to\Windows\"
-Copy-Item -Recurse "$from\Windows\PLA" "$to\Windows\"
-Copy-Item -Recurse "$from\Windows\PolicyDefinitions" "$to\Windows\"
-Copy-Item -Recurse "$from\Windows\Resources" "$to\Windows\"
-Copy-Item -Recurse "$from\Windows\Schemas" "$to\Windows\"
-Copy-Item -Recurse "$from\Windows\Security" "$to\Windows\"
-Copy-Item -Recurse "$from\Windows\SKB" "$to\Windows\"
-Copy-Item -Recurse "$from\Windows\SysArm32\explorer.exe" "$to\Windows\explorer.exe"
-Copy-Item -Recurse "$from\Windows\System" "$to\Windows\"
-Copy-Item -Recurse "$from\Windows\SystemResources" "$to\Windows\"
-Copy-Item -Recurse -Force "$from\Program Files\Program Files (Arm)" "$to\Windows\Program Files"
-###############################################################################
-
-###############################################################################
-Write "Copy missing files to Windows\System32"
-###############################################################################
-$excluded = "Drivers","DriverStore"
-$diff = Compare-Object2 -ReferenceObject (Get-ChildItem -Name -Exclude $excluded -Path "$from\Windows\SysArm32") -DifferenceObject (Get-ChildItem -Name -Exclude $excluded -Path "$to\Windows\System32")  | ? {$_.SideIndicator -eq '<='} | % {$_.InputObject}
-Write $diff > "$logsdir\diff-w10arm64.log"
-foreach ($item in $diff)
-{
-  Copy-Item -Recurse "$from\Windows\SysArm32\$item" "$to\Windows\System32\$item"
-}
-###############################################################################
-
-###############################################################################
-Write "Copy ARM apps"
-###############################################################################
-New-Item "$to\Windows\SystemApps" -ItemType Directory > $null
-Copy-Item -Recurse "$from\Windows\SystemApps\Microsoft.MicrosoftEdge_8wekyb3d8bbwe" "$to\Windows\SystemApps\"
-###############################################################################
-
-###############################################################################
-Write "Replacing some files"
-###############################################################################
-Copy-Item -Recurse -Force "$from\Windows\Setup" "$to\Windows\"
-Copy-Item "$from\Windows\SysArm32\taskmgr.exe" "$to\Windows\System32\taskmgr.exe"
-###############################################################################
-
-###############################################################################
-Write "Copy registry chunks from SYSTEM"
-###############################################################################
-Copy-Item -Recurse "$fromSystem\ActivationBroker" "$toSystem\"
-Copy-Item -Recurse -Force "$fromSystem\ControlSet001\Control" "$toSystem\ControlSet001\"
-Copy-Item -Recurse -Force "$fromSystem\ControlSet001\Services" "$toSystem\ControlSet001\"
-Copy-Item -Recurse "$fromSystem\Input" "$toSystem\"
-Copy-Item -Recurse "$fromSystem\Maps" "$toSystem\"
-Copy-Item -Recurse "$fromSystem\ResourceManager" "$toSystem\"
-Copy-Item -Recurse "$fromSystem\ResourcePolicyStore" "$toSystem\"
-Copy-Item -Recurse -Force "$fromSystem\Setup" "$toSystem\"
-Copy-Item -Recurse -Force "$fromSystem\Software" "$toSystem\"
-###############################################################################
-
-###############################################################################
-Write "Removing unavailable services from SYSTEM\ControlSet001\Services"
-###############################################################################
-Remove-Item -Force "$toSystem\ControlSet001\Services\iorate"
-Remove-Item -Force "$toSystem\ControlSet001\Services\stornvme"
-###############################################################################
-
-###############################################################################
-Write "Copy registry chunks from SOFTWARE"
-###############################################################################
-Copy-Item -Recurse -Force "$fromSoftware\Classes" "$toSoftware\"
-Copy-Item -Recurse "$fromSoftware\Clients" "$toSoftware\"
-Copy-Item -Recurse -Force "$fromSoftware\Microsoft" "$toSoftware\"
-Copy-Item -Recurse -Force "$fromSoftware\Policies" "$toSoftware\"
-Copy-Item -Recurse "$fromSoftware\RegisteredApplications" "$toSoftware\"
-###############################################################################
-
-###############################################################################
-Write "Patching wrong data in SOFTWARE\Microsoft"
-###############################################################################
-Remove-Item -Force "$toSoftware\Microsoft\Wow64"
-New-ItemProperty -Path "$toSoftware\Microsoft\Windows NT\CurrentVersion" -Name "BuildLabEx" -Value "16299.15.armfre.rs3_release.170928-1534"
-Remove-Item -Force "$toSoftware\Microsoft\Windows\CurrentVersion\CommonFilesDir (Arm)"
-Remove-Item -Force "$toSoftware\Microsoft\Windows\CurrentVersion\CommonFilesDir (x86)"
-Remove-Item -Force "$toSoftware\Microsoft\Windows\CurrentVersion\ProgramFilesDir (Arm)"
-Remove-Item -Force "$toSoftware\Microsoft\Windows\CurrentVersion\ProgramFilesDir (x86)"
-###############################################################################
-
-    Write "Unmounting W10ARM64.wim"
-	Unmount-Hive $fromSystem.Replace(":","")
-	Unmount-Hive $fromSoftware.Replace(":","")
-    Discard-Image "..\tmp\$wi\W10ARM64"
-	Remove-Item "..\tmp\$wi\SYSTEM"
-	Remove-Item "..\tmp\$wi\SOFTWARE"
-    Remove-Item "..\tmp\$wi\W10ARM64" -Recurse -Force > $null
-    Remove-Item "..\tmp\$wi\W10ARM64.wim" -Force > $null
-
-    Write "Mounting W10IOTARM.vhd"
-    New-Item "..\tmp\$wi\W10IOTARM" -ItemType Directory > $null
-    Mount-VHD (Get-Item "..\tmp\$wi\W10IOTARM.vhd").FullName (Get-Item "..\tmp\$wi\W10IOTARM").FullName "..\tmp\$wi"
-	Start-Sleep -s 5
-	$from = "..\tmp\$wi\W10IOTARM"
-	$fromSystem = "HKLM:\"+"$wi"+"_W10IOTARM_SYSTEM"
-	$fromSoftware = "HKLM:\"+"$wi"+"_W10IOTARM_SOFTWARE"
-	Mount-Hive "$from\Windows\System32\Config\SYSTEM" $fromSystem.Replace(":","")
-	Mount-Hive "$from\Windows\System32\Config\SOFTWARE" $fromSoftware.Replace(":","")
-	Read-Host "Check registry and continue"
-	
-###############################################################################
-# PCIIdle driver - not included to WinPE
-Write "Adding PCIIdle driver"
-###############################################################################
-Copy-Item "$from\Windows\System32\Drivers\pciidle.sys" "$to\Windows\System32\Drivers\pciidle.sys"
-###############################################################################
-
-###############################################################################
-# IntelIdle driver - not included to WinPE
-Write "Adding IntelIdle driver"
-###############################################################################
-Copy-Item "$from\Windows\System32\Drivers\intelidle.sys" "$to\Windows\System32\Drivers\intelidle.sys"
-###############################################################################
-
-###############################################################################
-# ATAPI driver - not included to WinPE
-Write "Adding ATAPI driver"
-###############################################################################
-Copy-Item "$from\Windows\System32\Drivers\atapi.sys" "$to\Windows\System32\Drivers\atapi.sys"
-###############################################################################
-
-###############################################################################
-# StorACHI driver - not include to WinPE
-Write "Adding StorACHI driver"
-###############################################################################
-Copy-Item "$from\Windows\System32\Drivers\storahci.sys" "$to\Windows\System32\Drivers\storahci.sys"
-###############################################################################
-
-###############################################################################
-Write "Copy missing files to Windows\System32"
-###############################################################################
-$excluded = "Drivers","DriverStore"
-$diff = Compare-Object2 -ReferenceObject (Get-ChildItem -Name -Exclude $excluded -Path "$from\Windows\System32") -DifferenceObject (Get-ChildItem -Name -Exclude $excluded -Path "$to\Windows\System32")  | ? {$_.SideIndicator -eq '<='} | % {$_.InputObject}
-foreach ($item in $diff)
-{
-  Copy-Item -Recurse "$from\Windows\System32\$item" "$to\Windows\System32\$item"
-}
-###############################################################################
-
-###############################################################################
-Write "Copy ARM apps"
-###############################################################################
-Copy-Item -Recurse "$from\Windows\SystemApps\Microsoft.AAD.BrokerPlugin_cw5n1h2txyewy" "$to\Windows\SystemApps\"
-Copy-Item -Recurse "$from\Windows\SystemApps\Microsoft.AccountsControl_cw5n1h2txyewy" "$to\Windows\SystemApps\"
-Copy-Item -Recurse "$from\Windows\SystemApps\Microsoft.Windows.CloudExperienceHost_cw5n1h2txyewy" "$to\Windows\SystemApps\"
-Copy-Item -Recurse "$from\Windows\SystemApps\Microsoft.Windows.Cortana_cw5n1h2txyewy" "$to\Windows\SystemApps\"
-###############################################################################
-
-    Write "Unmounting W10IOTARM.vhd"
-	Unmount-Hive $fromSystem.Replace(":","")
-	Unmount-Hive $fromSoftware.Replace(":","")
-    Unmount-VHD (Get-Item "..\tmp\$wi\W10IOTARM.vhd").FullName "..\tmp\$wi\W10IOTARM" "..\tmp\$wi"
-	Remove-Item "..\tmp\$wi\SYSTEM"
-	Remove-Item "..\tmp\$wi\SOFTWARE"
-    Remove-Item "..\tmp\$wi\W10IOTARM" -Recurse -Force > $null
-    Remove-Item "..\tmp\$wi\W10IOTARM.vhd" -Force > $null
-	
-	Write "Mounting W81RTARM.wim"
-    New-Item "..\tmp\$wi\W81RTARM" -ItemType Directory > $null
-    Mount-Image "..\tmp\$wi\W81RTARM.wim" "..\tmp\$wi\W81RTARM"
-	$from = "..\tmp\$wi\W81RTARM"
-	$fromSystem = "HKLM:\"+"$wi"+"_W81RTARM_SYSTEM"
-	$fromSoftware = "HKLM:\"+"$wi"+"_W81RTARM_SOFTWARE"
-	Mount-Hive "$from\Windows\System32\Config\SYSTEM" $fromSystem.Replace(":","")
-	Mount-Hive "$from\Windows\System32\Config\SOFTWARE" $fromSoftware.Replace(":","")
-	Read-Host "Check registry and continue"
-	
-###############################################################################
-# SDBus driver - Surface RT won't boot without this
-###############################################################################
-Copy-Item -Force "$from\Windows\System32\Drivers\sdbus.sys" "$to\Windows\System32\Drivers\sdbus.sys"
-Copy-Item -Force "$from\Windows\System32\Drivers\dumpsd.sys" "$to\Windows\System32\Drivers\dumpsd.sys"
-Copy-Item -Recurse "$from\Windows\System32\DriverStore\FileRepository\sdbus.inf_arm_19c0b9eb981e116f" "$to\Windows\System32\DriverStore\FileRepository\"
-Copy-Item -Force "$from\Windows\inf\sdbus.inf" "$to\Windows\inf\sdbus.inf"
-Copy-Item -Recurse -Force "$fromSystem\DriverDatabase\DriverInfFiles\sdbus.inf" "$toSystem\DriverDatabase\DriverInfFiles\sdbus.inf"
-Copy-Item -Recurse "$fromSystem\DriverDatabase\DriverPackages\sdbus.inf_arm_19c0b9eb981e116f" "$toSystem\DriverDatabase\DriverPackages\"
-###############################################################################
-
-###############################################################################
-# ReadyBoost driver - not aviliable in other Windows 10 ARM builds
-###############################################################################
-Copy-Item "$from\Windows\System32\Drivers\rdyboost.sys" "$to\Windows\System32\Drivers\rdyboost.sys"
-###############################################################################
-
-    Write "Unmonting W81RTARM.wim"
-	Unmount-Hive $fromSystem.Replace(":","")
-	Unmount-Hive $fromSoftware.Replace(":","")
-    Discard-Image "..\tmp\$wi\W81RTARM"
-	Remove-Item "..\tmp\$wi\SYSTEM"
-	Remove-Item "..\tmp\$wi\SOFTWARE"
-    Remove-Item "..\tmp\$wi\W81RTARM" -Recurse -Force > $null
-    Remove-Item "..\tmp\$wi\W81RTARM.wim" -Force > $null
-
-    Write "Umounting W10ARM.wim"
-	Unmount-Hive $toSystem.Replace(":","")
-	Unmount-Hive $toSoftware.Replace(":","")
-    Unmount-Image "..\tmp\$wi\W10PEARM"
-    Remove-Item "..\tmp\$wi\W10PEARM" -Recurse -Force > $null
-
-    Move-Item "..\tmp\$wi\W10PEARM.wim" "..\source\$W10ARM"
-    Remove-Item "..\tmp\$wi" -Recurse -Force > $null
-    Write "Done!"
-  }
-  else
-  {
-    Write "Obtain required files and restart this script"
-  }
-  Read-Host "Press Enter to continue"
+    Prepare-Environment
+    Integrate-CABs
+    Merge-Images
+    Construct-Registry
+    Integrate-Drivers
+    Clean-Environment
+    Read-Host "Press Enter to continue"
 }

@@ -1,0 +1,71 @@
+﻿<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>6CAFC0C6-A428-4d30-A9F9-700E829FEA51</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>MyApplication</RootNamespace>
+    <AssemblyName>MyApplication</AssemblyName>
+    <Name>WinB</Name>
+    <ManifestPath>$(OutDir)\$(ProjectName).psd1</ManifestPath>
+    <Guid>d3959496-26bf-405e-9b96-b610b1532534</Guid>
+    <ProcessorArchitecture />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="bin\Main.ps1" />
+    <Compile Include="modules\7Z.psm1" />
+    <Compile Include="modules\DISM.psm1" />
+    <Compile Include="modules\VHD.psm1" />
+    <Compile Include="scripts\BuildWindows10ARM.ps1" />
+    <Compile Include="scripts\FFU2WIM.ps1" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="bin\" />
+    <Folder Include="bin\amd64\" />
+    <Folder Include="bin\arm64\" />
+    <Folder Include="bin\arm\" />
+    <Folder Include="bin\x86\" />
+    <Folder Include="modules\" />
+    <Folder Include="logs\" />
+    <Folder Include="source\amd64\CABs\" />
+    <Folder Include="source\amd64\Drivers\" />
+    <Folder Include="source\amd64\Images\" />
+    <Folder Include="source\arm64\CABs\" />
+    <Folder Include="source\arm64\Drivers\" />
+    <Folder Include="source\arm64\Images\" />
+    <Folder Include="source\arm\" />
+    <Folder Include="source\arm64\" />
+    <Folder Include="source\amd64\" />
+    <Folder Include="source\arm\Images\" />
+    <Folder Include="source\arm\Drivers\" />
+    <Folder Include="source\arm\CABs\" />
+    <Folder Include="source\x86\" />
+    <Folder Include="source\x86\CABs\" />
+    <Folder Include="source\x86\Drivers\" />
+    <Folder Include="source\x86\Images\" />
+    <Folder Include="tmp\" />
+    <Folder Include="source\" />
+    <Folder Include="out\" />
+    <Folder Include="scripts\" />
+  </ItemGroup>
+  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
+  <Target Name="Build" />
+  <Import Project="$(MSBuildExtensionsPath)\PowerShell Tools for Visual Studio\PowerShellTools.targets" Condition="Exists('$(MSBuildExtensionsPath)\PowerShell Tools for Visual Studio\PowerShellTools.targets')" />
+</Project>

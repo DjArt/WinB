@@ -1,66 +1,7 @@
 #region Image Servicing
-function Mount-Image([string]$imagefile, [string]$dirname)
-{
-  Invoke-Expression "$env:PROCESSOR_ARCHITECTURE/DISM/Dism.exe /Mount-Image /ImageFile:$imagefile /Index:1 /MountDir:$dirname"
-}
-
-function Mount-VHD([string]$imagefile, [string]$dirname, [string]$tmpdir)
-{
-  "select vdisk file=`"$imagefile`"" > "$tmpdir\Mount-VHD"
-  "attach vdisk" >> "$tmpdir\Mount-VHD"
-  "select partition 2" >> "$tmpdir\Mount-VHD"
-  "assign mount=`"$dirname`"" >> "$tmpdir\Mount-VHD"
-  (Get-Content -Encoding Unicode "$tmpdir\Mount-VHD" ) | Out-File -Encoding UTF8 "$tmpdir\Mount-VHD"
-  Invoke-Expression "diskpart /s `"$tmpdir\Mount-VHD`""
-  Remove-Item "$tmpdir\Mount-VHD"
-}
-
-function Unmount-VHD([string]$imagefile, [string]$dirname, [string]$tmpdir)
-{
-  "select vdisk file=`"$imagefile`"" > "$tmpdir\Unmount-VHD"
-  "detach vdisk" >> "$tmpdir\Unmount-VHD"
-  (Get-Content -Encoding Unicode "$tmpdir\Unmount-VHD" ) | Out-File -Encoding UTF8 "$tmpdir\Unmount-VHD"
-  Invoke-Expression "diskpart /s `"$tmpdir\Unmount-VHD`""
-  Remove-Item "$tmpdir\Unmount-VHD"
-  Remove-Item "$dirname" -Force
-}
-
 function Set-ItemCompreesionFlag([string]$filename)
 {
   Invoke-Expression "compact /U `"$filename`""
-}
-
-function Unmount-Image([string]$dirname)
-{
-  Invoke-Expression "$env:PROCESSOR_ARCHITECTURE/DISM/Dism.exe /Unmount-Image /MountDir:$dirname /Commit"
-}
-
-function Discard-Image([string]$dirname)
-{
-  Invoke-Expression "$env:PROCESSOR_ARCHITECTURE/DISM/Dism.exe /Unmount-Image /MountDir:$dirname /Discard"
-}
-
-function Add-DriversToImage([string]$imagedir, [string]$driversdir)
-{
-  Invoke-Expression "$env:PROCESSOR_ARCHITECTURE/DISM/Dism.exe  /Image:$imagedir /Add-Driver /Driver:$driversdir /Recurse"
-}
-
-function Add-PackagesToImage([string]$imagedir, [string]$packagesdir)
-{
-  Invoke-Expression "$env:PROCESSOR_ARCHITECTURE/DISM/Dism.exe  /Image:$imagedir /Add-Package /PackagePath:$packagesdir"
-}
-
-function Replace-Item([string]$from, [string]$to)
-{
-  $acl = Get-Acl -Path $from
-  Get-Acl -Path $PSScriptRoot | Set-Acl -Path $to
-  Copy-Item $from $to
-  Set-Acl $acl -Path $to
-}
-
-function Extract-Item([string]$from, [string]$to)
-{
-  Invoke-Expression "$env:PROCESSOR_ARCHITECTURE/7-zip/7z.exe x `"$from`" -o`"$to`""
 }
 
 function Get-WorkingIndex
@@ -87,13 +28,6 @@ function Get-WorkingIndex
       throw "The tmp folder must contain only numeric names in directories!"
     }
   }
-}
-
-function Compare-Folders([string]$dir0, [string]$dir1)
-{
-  $items0 = Get-ChildItem -Name -Recurse -path $dir0
-  $items1 = Get-ChildItem -Name -Recurse -path $dir1
-  Compare-Object2 -ReferenceObject $items0 -DifferenceObject $items1
 }
 #endregion
 
@@ -207,43 +141,54 @@ param(
 #endregion
 
 #region Main Activity
+function Load-Modules
+{
+    foreach ($module in (Get-ChildItem -File -Path "..\modules"))
+    {
+        Import-Module -Name $module.FullName
+    }
+}
+
 function Load-Scripts
 {
-  return (Get-ChildItem -File -Name -Path "..\scripts")
+    return (Get-ChildItem -File -Name -Path "..\scripts")
 }
 
 function Start-Script([string]$scriptname)
 {
-  Import-Module "..\scripts\$scriptname.ps1"
-  Invoke-Expression "Start-$scriptname"
-  Remove-Module $scriptname
+    Import-Module "..\scripts\$scriptname.ps1"
+    Invoke-Expression "Start-$scriptname"
+    Remove-Module $scriptname
 }
 
 function Start-Menu
 {
-  Clear-Host
-  Write "--------------------------------------"
-  Write "-Windows Builder v. 0.0.0.3 by Dj Art-"
-  Write "--------------------------------------"
-  $scripts = (Load-Scripts).Split("`n")
-  for ($i0 = 0; $i0 -lt $scripts.Length; $i0++)
-  {
-    $scripts[$i0] = $scripts[$i0].Substring(0, $scripts[$i0].Length-4)
-    $scriptname = $scripts[$i0]
-    Write "  $i0 : $scriptname"
-  }
-  $exit = $scripts.Length
-  Write "  $exit : Exit"
-  $choose = Read-Host -Prompt "Your choise"
-  if ($choose -eq $exit)
-  {
+    # TODO: Check user
+    # TODO: Color schema
+    Load-Modules
     Clear-Host
-  }
-  else
-  {
-    Start-Script $scripts[$choose]
-    Start-Menu
-  }
+    Write-Host -ForegroundColor Yellow "--------------------------------------"
+    Write-Host -ForegroundColor Yellow "-Windows Builder v. 0.0.0.9 by Dj Art-"
+    Write-Host -ForegroundColor Yellow "--------------------------------------"
+    $scripts = (Load-Scripts).Split("`n")
+    for ($i0 = 0; $i0 -lt $scripts.Length; $i0++)
+    {
+        $scripts[$i0] = $scripts[$i0].Substring(0, $scripts[$i0].Length-4)
+        $scriptname = $scripts[$i0]
+        Write "  $i0 : $scriptname"
+    }
+    $exit = $scripts.Length
+    Write "  $exit : Exit"
+    $choose = Read-Host -Prompt "Your choise"
+    if ($choose -eq $exit)
+    {
+        Clear-Host
+    }
+    else
+    {
+        Start-Script $scripts[$choose]
+        Start-Menu
+    }
 }
 
 Start-Menu
