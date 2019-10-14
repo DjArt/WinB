@@ -168,7 +168,7 @@ function Start-Menu
     Load-Modules
     Clear-Host
     Write-Host -ForegroundColor Yellow "--------------------------------------"
-    Write-Host -ForegroundColor Yellow "-Windows Builder v. 0.0.0.9 by Dj Art-"
+    Write-Host -ForegroundColor Yellow "-Windows Builder v. 0.0.0.10 by djart-"
     Write-Host -ForegroundColor Yellow "--------------------------------------"
     $scripts = (Load-Scripts).Split("`n")
     for ($i0 = 0; $i0 -lt $scripts.Length; $i0++)
