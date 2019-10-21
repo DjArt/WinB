@@ -215,8 +215,12 @@ function Merge-Images
     Copy-Item -Recurse -Force "..\tmp\$wi\$global:W10\Windows\System" "..\tmp\$wi\$global:WPE\Windows\"
     Copy-Item -Recurse -Force "..\tmp\$wi\$global:W10\Windows\SystemResources" "..\tmp\$wi\$global:WPE\Windows\"
     Copy-Item -Recurse -Force "..\tmp\$wi\$global:W10\Windows\Setup" "..\tmp\$wi\$global:WPE\Windows\"
+    Write "   Copying explorer.exe"
     Copy-Item -Recurse -Force "..\tmp\$wi\$global:W10\Windows\SysArm32\explorer.exe" "..\tmp\$wi\$global:WPE\Windows\explorer.exe"
+    Write "   Copying taskmgr.exe"
     Copy-Item -Recurse -Force "..\tmp\$wi\$global:W10\Windows\SysArm32\taskmgr.exe" "..\tmp\$wi\$global:WPE\Windows\System32\taskmgr.exe"
+    Write "   Copying perfhost.exe"
+    Copy-Item -Recurse -Force "..\tmp\$wi\$global:W10\Windows\SysArm32\perfhost.exe" "..\tmp\$wi\$global:WPE\Windows\System32\perfhost.exe"
     Write "  Copying from $global:WIOT"
     foreach ($item in $Copy2)
     {
@@ -280,6 +284,15 @@ function Construct-Registry
 	Mount-Hive "..\tmp\$wi\$global:WPE\Windows\System32\Config\SYSTEM" $R_SY.Replace(":","")
 	Mount-Hive "..\tmp\$wi\$global:WPE\Windows\System32\Config\SOFTWARE" $R_SO.Replace(":","")
 	Mount-Hive "..\tmp\$wi\SYSTEM" $R_OR.Replace(":","")
+
+    Write " Fixing services"
+    Write "  Fixing PerfHost"
+    $tmp = Get-ItemProperty -Path "$R_SY\ControlSet001\Services\PerfHost" -Name "Description" -ireplace "SysWow64", "System32"
+    New-ItemProperty -Path "$R_SY\ControlSet001\Services\PerfHost" -Name "Description" -Value $tmp -PropertyType SZ -Force
+    $tmp = Get-ItemProperty -Path "$R_SY\ControlSet001\Services\PerfHost" -Name "DisplayName" -ireplace "SysWow64", "System32"
+    New-ItemProperty -Path "$R_SY\ControlSet001\Services\PerfHost" -Name "DisplayName" -Value $tmp -PropertyType SZ -Force
+    $tmp = Get-ItemProperty -Path "$R_SY\ControlSet001\Services\PerfHost" -Name "ImagePath" -ireplace "SysWow64", "System32"
+    New-ItemProperty -Path "$R_SY\ControlSet001\Services\PerfHost" -Name "ImagePath" -Value $tmp -PropertyType SZ -Force
 
     Write " Fixing DriverDatabase"
     Remove-Item -Force -Recurse "$R_SY\DriverDatabase"
