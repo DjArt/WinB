@@ -306,6 +306,11 @@ function Construct-Registry
     Remove-Item -Force -Recurse "$R_SY\ControlSet001\Control\OSExtensionDatabase"
     Copy-Item -Recurse -Force "$R_OR\ControlSet001\Control\OSExtensionDatabase" "$R_SY\ControlSet001\Control\OSExtensionDatabase"
 
+    Write " Fixing processor architecture"
+    New-ItemProperty -Path "$R_SY\ControlSet001\Control\Session Manager\Environment" -Name "PROCESSOR_ARCHITECTURE" -Value "arm" -PropertyType SZ -Force
+    $tmp = Get-ItemProperty -Path "$R_SY\Software\Microsoft" -Name "BuildLabEx" -ireplace "arm64", "arm"
+    New-ItemProperty -Path "$R_SY\Software\Microsoft" -Name "BuildLabEx" -Value $tmp -PropertyType SZ -Force
+
     Write " Clean SysWOW"
     Remove-Item -Force -Recurse "$R_SO\WOW6432Node"
     Remove-Item -Force -Recurse "$R_SO\WowAA32Node"
