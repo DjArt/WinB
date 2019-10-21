@@ -286,6 +286,10 @@ function Construct-Registry
 	Mount-Hive "..\tmp\$wi\SYSTEM" $R_OR.Replace(":","")
 
     Write " Fixing services"
+
+    Write "  Removing XtaChache"
+    Remove-Item -Force -Recurse "$R_SY\ControlSet001\Services\XtaCache"
+
     Write "  Fixing PerfHost"
     $tmp = Get-ItemProperty -Path "$R_SY\ControlSet001\Services\PerfHost" -Name "Description" -ireplace "SysWow64", "System32"
     New-ItemProperty -Path "$R_SY\ControlSet001\Services\PerfHost" -Name "Description" -Value $tmp -PropertyType SZ -Force
