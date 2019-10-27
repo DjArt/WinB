@@ -291,12 +291,12 @@ function Construct-Registry
     Remove-Item -Force -Recurse "$R_SY\ControlSet001\Services\XtaCache"
 
     Write "  Fixing PerfHost"
-    $tmp = Get-ItemProperty -Path "$R_SY\ControlSet001\Services\PerfHost" -Name "Description" -ireplace "SysWow64", "System32"
-    New-ItemProperty -Path "$R_SY\ControlSet001\Services\PerfHost" -Name "Description" -Value $tmp -PropertyType SZ -Force
-    $tmp = Get-ItemProperty -Path "$R_SY\ControlSet001\Services\PerfHost" -Name "DisplayName" -ireplace "SysWow64", "System32"
-    New-ItemProperty -Path "$R_SY\ControlSet001\Services\PerfHost" -Name "DisplayName" -Value $tmp -PropertyType SZ -Force
-    $tmp = Get-ItemProperty -Path "$R_SY\ControlSet001\Services\PerfHost" -Name "ImagePath" -ireplace "SysWow64", "System32"
-    New-ItemProperty -Path "$R_SY\ControlSet001\Services\PerfHost" -Name "ImagePath" -Value $tmp -PropertyType SZ -Force
+    $tmp = (Get-ItemProperty -Path "$R_SY\ControlSet001\Services\PerfHost" -Name "Description") -ireplace "SysWow64", "System32"
+    New-ItemProperty -Path "$R_SY\ControlSet001\Services\PerfHost" -Name "Description" -Value $tmp -PropertyType String -Force
+    $tmp = (Get-ItemProperty -Path "$R_SY\ControlSet001\Services\PerfHost" -Name "DisplayName") -ireplace "SysWow64", "System32"
+    New-ItemProperty -Path "$R_SY\ControlSet001\Services\PerfHost" -Name "DisplayName" -Value $tmp -PropertyType String -Force
+    $tmp = (Get-ItemProperty -Path "$R_SY\ControlSet001\Services\PerfHost" -Name "ImagePath") -ireplace "SysWow64", "System32"
+    New-ItemProperty -Path "$R_SY\ControlSet001\Services\PerfHost" -Name "ImagePath" -Value $tmp -PropertyType String -Force
 
     Write " Fixing DriverDatabase"
     Remove-Item -Force -Recurse "$R_SY\DriverDatabase"
@@ -307,9 +307,9 @@ function Construct-Registry
     Copy-Item -Recurse -Force "$R_OR\ControlSet001\Control\OSExtensionDatabase" "$R_SY\ControlSet001\Control\OSExtensionDatabase"
 
     Write " Fixing processor architecture"
-    New-ItemProperty -Path "$R_SY\ControlSet001\Control\Session Manager\Environment" -Name "PROCESSOR_ARCHITECTURE" -Value "arm" -PropertyType SZ -Force
-    $tmp = Get-ItemProperty -Path "$R_SY\Software\Microsoft" -Name "BuildLabEx" -ireplace "arm64", "arm"
-    New-ItemProperty -Path "$R_SY\Software\Microsoft" -Name "BuildLabEx" -Value $tmp -PropertyType SZ -Force
+    New-ItemProperty -Path "$R_SY\ControlSet001\Control\Session Manager\Environment" -Name "PROCESSOR_ARCHITECTURE" -Value "arm" -PropertyType String -Force
+    $tmp = (Get-ItemProperty -Path "$R_SY\Software\Microsoft" -Name "BuildLabEx") -ireplace "arm64", "arm"
+    New-ItemProperty -Path "$R_SY\Software\Microsoft" -Name "BuildLabEx" -Value $tmp -PropertyType String -Force
 
     Write " Clean SysWOW"
     Remove-Item -Force -Recurse "$R_SO\WOW6432Node"
@@ -339,10 +339,12 @@ function Integrate-Drivers
 
     Write " Merging drivers"
     Write "  Mounting registry"
+    $R_OR = "HKLM:\"+"$wi"+"_OR"
     $R_WPE = "HKLM:\"+"$wi"+"_WPE"
     $R_WIOT = "HKLM:\"+"$wi"+"_WIOT"
     $R_WM = "HKLM:\"+"$wi"+"_WM"
     $R_W81 = "HKLM:\"+"$wi"+"_W81"
+	Mount-Hive "..\tmp\$wi\SYSTEM" $R_OR.Replace(":","")
 	Mount-Hive "..\tmp\$wi\$global:WPE\Windows\System32\Config\SYSTEM" $R_WPE.Replace(":","")
     Mount-Hive "..\tmp\$wi\$global:WIOT\Windows\System32\Config\SYSTEM" $R_WIOT.Replace(":","")
     Mount-Hive "..\tmp\$wi\$global:WM\Windows\System32\Config\SYSTEM" $R_WM.Replace(":","")
@@ -359,7 +361,7 @@ function Integrate-Drivers
     Write "   Obtain $global:WM drivers list"
     $global:WM_List = Get-ChildItem -Name -File -Recurse -Path "..\tmp\$wi\$global:WM\Windows\System32\Drivers"
     Write "   Obtain $global:W81 drivers list"
-    $global:W81_List = Get-ChildItem -File -Recurse -Path "..\tmp\$wi\$global:W81\Windows\System32\Drivers"
+    $global:W81_List = Get-ChildItem -Name -File -Recurse -Path "..\tmp\$wi\$global:W81\Windows\System32\Drivers"
 
     Write "  Comparing lists"
     $Diff0 = Compare-Object2 -IncludeEqual -ReferenceObject $Original_List -DifferenceObject $global:WPE_List | ? {$_.SideIndicator -eq '<='} | % {$_.InputObject}
@@ -397,8 +399,53 @@ function Integrate-Drivers
     {
         Copy-Item -Force -Recurse -Verbose "..\tmp\$wi\$global:W81\Windows\System32\Drivers\$item" "..\tmp\$wi\$global:WPE\Windows\System32\Drivers\" 4>> "..\logs\$wi\copylog in System32.log"
     }
+    Write "    Copying CompositeBus from $global:W81"
+    Copy-Item -Force -Recurse -Verbose "..\tmp\$wi\$global:W81\Windows\System32\DriverStore\FileRepository\compositebus.inf_arm_*" "..\tmp\$wi\$global:WPE\Windows\System32\DriverStore\FileRepository\" 4>> "..\logs\$wi\copylog in System32.log"
 
     Write "   Fixing registry"
+
+    if (!($Diff3 -contains "iorate.sys"))
+    {
+        Write "    Removing iorate from LowerFilters"
+        $tmp = (Get-ItemProperty -Path "$R_WPE\ControlSet001\Control\Class\{71a27cdd-812a-11d0-bec7-08002be2092f}" -Name "LowerFilters") | Where-Object { $_ -ne "iorate" }
+        New-ItemProperty -Path "$R_WPE\ControlSet001\Control\Class\{71a27cdd-812a-11d0-bec7-08002be2092f}" -Name "LowerFilters" -Value $tmp -PropertyType MultiString -Force
+    }
+
+    Write "    Changing paths in services"
+    Write "     Changing BasicDisplay"
+    $tmp = Get-ItemProperty -Path "$R_OR\ControlSet001\Services\BasicDisplay" -Name "ImagePath"
+    New-ItemProperty -Path "$R_WPE\ControlSet001\Services\BasicDisplay" -Name "ImagePath" -Value $tmp -PropertyType String -Force
+    Write "     Changing BasicRender"
+    $tmp = Get-ItemProperty -Path "$R_OR\ControlSet001\Services\BasicRender" -Name "ImagePath"
+    New-ItemProperty -Path "$R_WPE\ControlSet001\Services\BasicRender" -Name "ImagePath" -Value $tmp -PropertyType String -Force
+    Write "     Changing CompositeBus"
+    $tmp = Get-ItemProperty -Path "$R_W81\ControlSet001\Services\CompositeBus" -Name "ImagePath"
+    New-ItemProperty -Path "$R_WPE\ControlSet001\Services\CompositeBus" -Name "ImagePath" -Value $tmp -PropertyType String -Force
+    Write "     Changing genericusbfn"
+    $tmp = Get-ItemProperty -Path "$R_OR\ControlSet001\Services\genericusbfn" -Name "ImagePath"
+    New-ItemProperty -Path "$R_WPE\ControlSet001\Services\genericusbfn" -Name "ImagePath" -Value $tmp -PropertyType String -Force
+    Write "     Changing swenum"
+    $tmp = Get-ItemProperty -Path "$R_OR\ControlSet001\Services\swenum" -Name "ImagePath"
+    New-ItemProperty -Path "$R_WPE\ControlSet001\Services\swenum" -Name "ImagePath" -Value $tmp -PropertyType String -Force
+    Write "     Changing UEFI"
+    $tmp = Get-ItemProperty -Path "$R_OR\ControlSet001\Services\UEFI" -Name "ImagePath"
+    New-ItemProperty -Path "$R_WPE\ControlSet001\Services\UEFI" -Name "ImagePath" -Value $tmp -PropertyType String -Force
+    Write "     Changing UfxChipidea"
+    $tmp = Get-ItemProperty -Path "$R_OR\ControlSet001\Services\UfxChipidea" -Name "ImagePath"
+    New-ItemProperty -Path "$R_WPE\ControlSet001\Services\UfxChipidea" -Name "ImagePath" -Value $tmp -PropertyType String -Force
+    Write "     Changing umbus"
+    $tmp = Get-ItemProperty -Path "$R_OR\ControlSet001\Services\umbus" -Name "ImagePath"
+    New-ItemProperty -Path "$R_WPE\ControlSet001\Services\umbus" -Name "ImagePath" -Value $tmp -PropertyType String -Force
+    Write "     Changing UsrChipidea"
+    $tmp = Get-ItemProperty -Path "$R_OR\ControlSet001\Services\UsrChipidea" -Name "ImagePath"
+    New-ItemProperty -Path "$R_WPE\ControlSet001\Services\UsrChipidea" -Name "ImagePath" -Value $tmp -PropertyType String -Force
+    Write "     Changing UsrSynopsys"
+    $tmp = Get-ItemProperty -Path "$R_OR\ControlSet001\Services\UsrSynopsys" -Name "ImagePath"
+    New-ItemProperty -Path "$R_WPE\ControlSet001\Services\UsrSynopsys" -Name "ImagePath" -Value $tmp -PropertyType String -Force
+
+
+
+    Write "    Deleting services without executables"
     $Diff3 = $Diff3 | ? { -not $_.Contains("\") }
     Write $Diff3 > "..\logs\$wi\For remove Drivers.log"
     foreach ($item in $Diff3)
@@ -411,6 +458,7 @@ function Integrate-Drivers
     Start-Sleep 5
 
     Write "  Unmounting registry"
+    Unmount-Hive $R_OR.Replace(":","")
     Unmount-Hive $R_WPE.Replace(":","")
     Unmount-Hive $R_WIOT.Replace(":","")
     Unmount-Hive $R_WM.Replace(":","")
@@ -449,7 +497,14 @@ function Clean-Environment
     Unmount-Image "..\tmp\$wi\$global:WPE"
     Remove-Item "..\tmp\$wi\$global:WPE" -Recurse -Force > $null
 
-    Move-Item "..\tmp\$wi\$global:WPE.wim" "..\out\$wi $global:W10.wim"
+    if (Test-Path "..\out\$wi $global:W10.wim")
+    {
+        Move-Item "..\tmp\$wi\$global:WPE.wim" "..\out\$wi $global:W10.wim" -Force -Confirm
+    }
+    else
+    {
+        Move-Item "..\tmp\$wi\$global:WPE.wim" "..\out\$wi $global:W10.wim"
+    }
 
     Remove-Item -Force -Recurse "..\tmp\$wi"
 
