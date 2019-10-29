@@ -291,11 +291,11 @@ function Construct-Registry
     Remove-Item -Force -Recurse "$R_SY\ControlSet001\Services\XtaCache"
 
     Write "  Fixing PerfHost"
-    $tmp = (Get-ItemProperty -Path "$R_SY\ControlSet001\Services\PerfHost" -Name "Description") -ireplace "SysWow64", "System32"
+    $tmp = (Get-ItemPropertyValue -Path "$R_SY\ControlSet001\Services\PerfHost" -Name "Description") -ireplace "SysWow64", "System32"
     New-ItemProperty -Path "$R_SY\ControlSet001\Services\PerfHost" -Name "Description" -Value $tmp -PropertyType String -Force
-    $tmp = (Get-ItemProperty -Path "$R_SY\ControlSet001\Services\PerfHost" -Name "DisplayName") -ireplace "SysWow64", "System32"
+    $tmp = (Get-ItemPropertyValue -Path "$R_SY\ControlSet001\Services\PerfHost" -Name "DisplayName") -ireplace "SysWow64", "System32"
     New-ItemProperty -Path "$R_SY\ControlSet001\Services\PerfHost" -Name "DisplayName" -Value $tmp -PropertyType String -Force
-    $tmp = (Get-ItemProperty -Path "$R_SY\ControlSet001\Services\PerfHost" -Name "ImagePath") -ireplace "SysWow64", "System32"
+    $tmp = (Get-ItemPropertyValue -Path "$R_SY\ControlSet001\Services\PerfHost" -Name "ImagePath") -ireplace "SysWow64", "System32"
     New-ItemProperty -Path "$R_SY\ControlSet001\Services\PerfHost" -Name "ImagePath" -Value $tmp -PropertyType String -Force
 
     Write " Fixing DriverDatabase"
@@ -308,7 +308,7 @@ function Construct-Registry
 
     Write " Fixing processor architecture"
     New-ItemProperty -Path "$R_SY\ControlSet001\Control\Session Manager\Environment" -Name "PROCESSOR_ARCHITECTURE" -Value "arm" -PropertyType String -Force
-    $tmp = (Get-ItemProperty -Path "$R_SY\Software\Microsoft" -Name "BuildLabEx") -ireplace "arm64", "arm"
+    $tmp = (Get-ItemPropertyValue -Path "$R_SY\Software\Microsoft" -Name "BuildLabEx") -ireplace "arm64", "arm"
     New-ItemProperty -Path "$R_SY\Software\Microsoft" -Name "BuildLabEx" -Value $tmp -PropertyType String -Force
 
     Write " Clean SysWOW"
@@ -407,40 +407,40 @@ function Integrate-Drivers
     if (!($Diff3 -contains "iorate.sys"))
     {
         Write "    Removing iorate from LowerFilters"
-        $tmp = (Get-ItemProperty -Path "$R_WPE\ControlSet001\Control\Class\{71a27cdd-812a-11d0-bec7-08002be2092f}" -Name "LowerFilters") | Where-Object { $_ -ne "iorate" }
+        $tmp = (Get-ItemPropertyValue -Path "$R_WPE\ControlSet001\Control\Class\{71a27cdd-812a-11d0-bec7-08002be2092f}" -Name "LowerFilters") | Where-Object { $_ -ne "iorate" }
         New-ItemProperty -Path "$R_WPE\ControlSet001\Control\Class\{71a27cdd-812a-11d0-bec7-08002be2092f}" -Name "LowerFilters" -Value $tmp -PropertyType MultiString -Force
     }
 
     Write "    Changing paths in services"
     Write "     Changing BasicDisplay"
-    $tmp = Get-ItemProperty -Path "$R_OR\ControlSet001\Services\BasicDisplay" -Name "ImagePath"
+    $tmp = Get-ItemPropertyValue -Path "$R_OR\ControlSet001\Services\BasicDisplay" -Name "ImagePath"
     New-ItemProperty -Path "$R_WPE\ControlSet001\Services\BasicDisplay" -Name "ImagePath" -Value $tmp -PropertyType String -Force
     Write "     Changing BasicRender"
-    $tmp = Get-ItemProperty -Path "$R_OR\ControlSet001\Services\BasicRender" -Name "ImagePath"
+    $tmp = Get-ItemPropertyValue -Path "$R_OR\ControlSet001\Services\BasicRender" -Name "ImagePath"
     New-ItemProperty -Path "$R_WPE\ControlSet001\Services\BasicRender" -Name "ImagePath" -Value $tmp -PropertyType String -Force
     Write "     Changing CompositeBus"
-    $tmp = Get-ItemProperty -Path "$R_W81\ControlSet001\Services\CompositeBus" -Name "ImagePath"
+    $tmp = Get-ItemPropertyValue -Path "$R_W81\ControlSet001\Services\CompositeBus" -Name "ImagePath"
     New-ItemProperty -Path "$R_WPE\ControlSet001\Services\CompositeBus" -Name "ImagePath" -Value $tmp -PropertyType String -Force
     Write "     Changing genericusbfn"
-    $tmp = Get-ItemProperty -Path "$R_OR\ControlSet001\Services\genericusbfn" -Name "ImagePath"
+    $tmp = Get-ItemPropertyValue -Path "$R_OR\ControlSet001\Services\genericusbfn" -Name "ImagePath"
     New-ItemProperty -Path "$R_WPE\ControlSet001\Services\genericusbfn" -Name "ImagePath" -Value $tmp -PropertyType String -Force
     Write "     Changing swenum"
-    $tmp = Get-ItemProperty -Path "$R_OR\ControlSet001\Services\swenum" -Name "ImagePath"
+    $tmp = Get-ItemPropertyValue -Path "$R_OR\ControlSet001\Services\swenum" -Name "ImagePath"
     New-ItemProperty -Path "$R_WPE\ControlSet001\Services\swenum" -Name "ImagePath" -Value $tmp -PropertyType String -Force
     Write "     Changing UEFI"
-    $tmp = Get-ItemProperty -Path "$R_OR\ControlSet001\Services\UEFI" -Name "ImagePath"
+    $tmp = Get-ItemPropertyValue -Path "$R_OR\ControlSet001\Services\UEFI" -Name "ImagePath"
     New-ItemProperty -Path "$R_WPE\ControlSet001\Services\UEFI" -Name "ImagePath" -Value $tmp -PropertyType String -Force
     Write "     Changing UfxChipidea"
-    $tmp = Get-ItemProperty -Path "$R_OR\ControlSet001\Services\UfxChipidea" -Name "ImagePath"
+    $tmp = Get-ItemPropertyValue -Path "$R_OR\ControlSet001\Services\UfxChipidea" -Name "ImagePath"
     New-ItemProperty -Path "$R_WPE\ControlSet001\Services\UfxChipidea" -Name "ImagePath" -Value $tmp -PropertyType String -Force
     Write "     Changing umbus"
-    $tmp = Get-ItemProperty -Path "$R_OR\ControlSet001\Services\umbus" -Name "ImagePath"
+    $tmp = Get-ItemPropertyValue -Path "$R_OR\ControlSet001\Services\umbus" -Name "ImagePath"
     New-ItemProperty -Path "$R_WPE\ControlSet001\Services\umbus" -Name "ImagePath" -Value $tmp -PropertyType String -Force
     Write "     Changing UsrChipidea"
-    $tmp = Get-ItemProperty -Path "$R_OR\ControlSet001\Services\UsrChipidea" -Name "ImagePath"
+    $tmp = Get-ItemPropertyValue -Path "$R_OR\ControlSet001\Services\UsrChipidea" -Name "ImagePath"
     New-ItemProperty -Path "$R_WPE\ControlSet001\Services\UsrChipidea" -Name "ImagePath" -Value $tmp -PropertyType String -Force
     Write "     Changing UsrSynopsys"
-    $tmp = Get-ItemProperty -Path "$R_OR\ControlSet001\Services\UsrSynopsys" -Name "ImagePath"
+    $tmp = Get-ItemPropertyValue -Path "$R_OR\ControlSet001\Services\UsrSynopsys" -Name "ImagePath"
     New-ItemProperty -Path "$R_WPE\ControlSet001\Services\UsrSynopsys" -Name "ImagePath" -Value $tmp -PropertyType String -Force
 
 
